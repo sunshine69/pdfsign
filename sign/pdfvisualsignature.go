@@ -170,6 +170,15 @@ func (context *SignContext) createIncPageUpdate(pageNumber, annot uint32) ([]byt
 			page_buffer.WriteString("  ]\n")
 		default:
 			val := page.Key(key)
+			// An indirect dictionary or array has to stay a reference.
+			// Writing it out in full makes the entry direct, and a
+			// verifier comparing the page against the signed revision
+			// sees /Resources (and any other such entry) as a change
+			// the DocMDP permission does not permit.
+			if (val.Kind() == pdf.Dict || val.Kind() == pdf.Array) && val.GetPtr() != page.GetPtr() {
+				ptr := val.GetPtr()
+				fmt.Fprintf(&page_buffer, "  /%s %d %d R\n", key, ptr.GetID(), ptr.GetGen())
+			} else
 			if val.Kind() == pdf.String {
 				encoded, err := pdfString(val.RawString())
 				if err != nil {
